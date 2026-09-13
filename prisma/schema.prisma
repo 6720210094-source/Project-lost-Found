@@ -1,0 +1,77 @@
+// 1. กำหนด Datasource และ Generator
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// 2. Enum สำหรับประเภทรายการ (ของหาย / ตามหาเจ้าของ) และสถานะ
+enum ItemType {
+  LOST  // แจ้งของหาย
+  FOUND // แจ้งพบของ
+}
+
+enum ItemStatus {
+  PENDING  // กำลังตามหา / รอเจ้าของ
+  RESOLVED // ส่งคืนสำเร็จแล้ว
+  CANCELLED // ยกเลิกรายการ
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+// 3. Model: User ( Authentication System )
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  name         String?
+  phone        String?   // เบอร์ติดต่อสำหรับตามหาของ
+  role         Role      @default(USER)
+
+  // Relations
+  profile      Profile?
+  items        Item[]    // 1 User สามารถสร้างประกาศได้หลายรายการ
+
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+// 4. Model: Profile (ข้อมูลโปรไฟล์เพิ่มเติม)
+model Profile {
+  id        String   @id @default(uuid())
+  bio       String?
+  avatarUrl String?  @map("avatar_url")
+  
+  userId    String   @unique @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+// 5. Model: Item ( Resource หลักสำหรับ Lost & Found - รองรับ CRUD ใน Sprint 1 )
+model Item {
+  id          String     @id @default(uuid())
+  title       String     // ชื่อของที่หาย/ที่เจอ เช่น "กระเป๋าสตางค์สีดำ"
+  description String?    // รายละเอียดเพิ่มเติม
+  category    String     // หมวดหมู่ เช่น "IT", "เอกสาร", "ของใช้ส่วนตัว"
+  location    String     // สถานที่ที่หาย หรือสถานที่พบ
+  imageUrl    String?    @map("image_url") // รูปภาพประกอบ
+  type        ItemType   // LOST หรือ FOUND
+  status      ItemStatus @default(PENDING)
+
+  // Foreign Key เชื่อมกับผู้แจ้ง (User)
+  userId      String     @map("user_id")
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  @@map("items")
+}
