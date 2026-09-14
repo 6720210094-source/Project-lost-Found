@@ -142,18 +142,24 @@ export default function AuthSplitCard({ variant }: { variant: AuthVariant }) {
       }
 
       if (data.user) {
-        const { error: userInsertError } = await supabase.from("users").upsert(
-          {
-            id: data.user.id,
-            email: data.user.email ?? email.trim(),
-            name: fullName.trim(),
-            role: "USER",
-          },
-          { onConflict: "id" }
-        );
+        const userProfile = {
+          id: data.user.id,
+          email: data.user.email ?? email.trim(),
+          name: fullName.trim(),
+          role: "USER",
+        };
+
+        const { error: userInsertError } = await supabase.from("users").upsert(userProfile, {
+          onConflict: "id",
+        });
 
         if (userInsertError) {
-          console.error("Insert user record failed:", userInsertError);
+          console.error(
+            "Insert user record failed:",
+            userInsertError.message ?? JSON.stringify(userInsertError, null, 2)
+          );
+          setErrorMsg("สมัครสมาชิกสำเร็จแต่ไม่สามารถบันทึกข้อมูลผู้ใช้ได้ กรุณาลองเข้าสู่ระบบใหม่อีกครั้ง");
+          return;
         }
       }
 

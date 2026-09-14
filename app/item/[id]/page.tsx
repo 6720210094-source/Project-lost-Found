@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
+import ItemImage from "@/components/ItemImage";
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { User } from "@supabase/supabase-js";
 
 interface Item {
   id: string;
@@ -27,10 +29,14 @@ interface UserProfile {
 
 export default function ItemDetailPage() {
   const { id } = useParams();
+  const router = useRouter();
 
   const [item, setItem] = useState<Item | null>(null);
   const [reporter, setReporter] = useState<UserProfile | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [startingChat, setStartingChat] = useState(false);
 
   useEffect(() => {
     async function loadItem() {
@@ -62,6 +68,88 @@ export default function ItemDetailPage() {
 
     loadItem();
   }, [id]);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setCurrentUser(user);
+    });
+  }, []);
+
+  const handleResolveReport = async () => {
+    if (!item || !currentUser || currentUser.id !== item.user_id) {
+      return;
+    }
+
+    setUpdatingStatus(true);
+
+    try {
+      const response = await fetch(`/api/items/${item.id}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: "RESOLVED",
+          type: "FOUND",
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "ไม่สามารถเปลี่ยนสถานะได้");
+      }
+
+      setItem((prev) => (
+        prev ? { ...prev, status: "RESOLVED", type: "FOUND" } : prev
+      ));
+      router.push("/found");
+    } catch (error) {
+      console.error("Resolve item error:", error);
+      alert(error instanceof Error ? error.message : "เกิดข้อผิดพลาดในการอัปเดตสถานะ");
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const handleStartChat = async () => {
+    if (!item || !currentUser || !item.user_id) {
+      return;
+    }
+
+    if (currentUser.id === item.user_id) {
+      alert("คุณเป็นเจ้าของโพสต์นี้ ไม่จำเป็นต้องทักแชทกับตัวเอง");
+      return;
+    }
+
+    setStartingChat(true);
+
+    try {
+      const response = await fetch("/api/chat/rooms", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          itemId: item.id,
+          otherUserId: item.user_id,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "ไม่สามารถเริ่มห้องแชทได้");
+      }
+
+      router.push(`/chat/${result.room.id}`);
+    } catch (error) {
+      console.error("Start chat error:", error);
+      alert(error instanceof Error ? error.message : "เกิดข้อผิดพลาดในการเริ่มห้องแชท");
+    } finally {
+      setStartingChat(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -105,11 +193,23 @@ export default function ItemDetailPage() {
           <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
             <div className="grid md:grid-cols-2">
 
+              {currentUser && currentUser.id === item.user_id && item.status !== "RESOLVED" && (
+                <div className="border-b border-slate-200 bg-slate-50 p-4 md:col-span-2">
+                  <button
+                    type="button"
+                    onClick={handleResolveReport}
+                    disabled={updatingStatus}
+                    className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {updatingStatus ? "กำลังอัปเดต..." : "ทำรายการส่งคืนแล้ว"}
+                  </button>
+                </div>
+              )}
+
               {/* รูปภาพ */}
               <div className="flex min-h-[350px] items-center justify-center bg-slate-100 overflow-hidden">
                 {item.image_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <ItemImage
                     src={item.image_url}
                     alt={item.title}
                     className="h-full w-full object-cover"
@@ -141,6 +241,19 @@ export default function ItemDetailPage() {
                   >
                     {item.status === "RESOLVED" ? "ส่งคืนแล้ว" : "กำลังตามหา"}
                   </span>
+                </div>
+
+                <div className="mb-6 flex flex-wrap gap-3">
+                  {!currentUser || currentUser.id !== item.user_id ? (
+                    <button
+                      type="button"
+                      onClick={handleStartChat}
+                      disabled={startingChat}
+                      className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {startingChat ? "กำลังเริ่มแชท..." : "ทักแชทหาผู้แจ้ง"}
+                    </button>
+                  ) : null}
                 </div>
 
                 <h1 className="text-3xl font-bold text-slate-900">{item.title}</h1>

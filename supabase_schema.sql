@@ -30,13 +30,17 @@ END $$;
 CREATE TABLE IF NOT EXISTS public.users (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT UNIQUE NOT NULL,
-  password_hash TEXT,
+  password_hash TEXT NULL,
   name TEXT,
   phone TEXT,
   role user_role DEFAULT 'USER'::user_role,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Supabase Auth is the source of truth for passwords.
+-- The custom users table should not require a password hash during sign-up.
+ALTER TABLE public.users ALTER COLUMN password_hash DROP NOT NULL;
 
 -- 3. Create Items Table (Lost & Found Items)
 CREATE TABLE IF NOT EXISTS public.items (

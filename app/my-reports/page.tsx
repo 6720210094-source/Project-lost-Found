@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
+import ItemImage from "@/components/ItemImage";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { User } from "@supabase/supabase-js";
@@ -196,8 +197,7 @@ export default function MyReportsPage() {
                       <div className="flex items-start gap-4">
                         <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-slate-100 overflow-hidden">
                           {report.image_url ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
+                            <ItemImage
                               src={report.image_url}
                               alt={report.title}
                               className="h-full w-full object-cover"

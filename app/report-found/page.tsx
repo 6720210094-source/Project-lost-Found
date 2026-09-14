@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { User } from "@supabase/supabase-js";
+import ItemImage from "@/components/ItemImage";
 
 export default function ReportFoundPage() {
   const [title, setTitle] = useState("");
@@ -54,19 +55,20 @@ export default function ReportFoundPage() {
       let imageUrl = "";
 
       if (file) {
-        const fileExt = file.name.split(".").pop();
-        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-        const filePath = `items/${fileName}`;
+        const formData = new FormData();
+        formData.append("file", file);
 
-        const { error: uploadError } = await supabase.storage
-          .from("item-images")
-          .upload(filePath, file);
+        const uploadResponse = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
 
-        if (!uploadError) {
-          const { data: publicUrlData } = supabase.storage
-            .from("item-images")
-            .getPublicUrl(filePath);
-          imageUrl = publicUrlData.publicUrl;
+        if (uploadResponse.ok) {
+          const result = await uploadResponse.json();
+          imageUrl = result.url || "";
+        } else {
+          const result = await uploadResponse.json().catch(() => ({}));
+          throw new Error(result.error || "ไม่สามารถอัปโหลดรูปภาพได้");
         }
       }
 

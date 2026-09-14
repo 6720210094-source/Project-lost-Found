@@ -22,6 +22,7 @@ const reportItems = [
 export default function Navbar() {
   const [user, setUser] = useState<User | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
   const { setTheme } = useTheme();
   const pathname = usePathname();
   const router = useRouter();
@@ -44,6 +45,51 @@ export default function Navbar() {
       subscription.unsubscribe();
     };
   }, [setTheme]);
+
+  useEffect(() => {
+    async function fetchUnreadChatCount() {
+      if (!user) {
+        setChatUnreadCount(0);
+        return;
+      }
+
+      const { data: rooms, error } = await supabase
+        .from("chat_rooms")
+        .select("id, user1_id, user2_id")
+        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
+
+      if (error || !rooms) {
+        setChatUnreadCount(0);
+        return;
+      }
+
+      let unreadCount = 0;
+
+      for (const room of rooms) {
+        const lastSeenAt = localStorage.getItem(`chat-last-seen-${room.id}`);
+        const { data: messages, error: messagesError } = await supabase
+          .from("chat_messages")
+          .select("id, sender_id, created_at")
+          .eq("room_id", room.id)
+          .order("created_at", { ascending: false })
+          .limit(50);
+
+        if (messagesError || !messages) continue;
+
+        const unseenMessages = messages.filter((message) => {
+          if (message.sender_id === user.id) return false;
+          if (!lastSeenAt) return true;
+          return new Date(message.created_at).getTime() > new Date(lastSeenAt).getTime();
+        });
+
+        unreadCount += unseenMessages.length;
+      }
+
+      setChatUnreadCount(unreadCount);
+    }
+
+    fetchUnreadChatCount();
+  }, [user, pathname]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -105,17 +151,27 @@ export default function Navbar() {
               <span>{item.label}</span>
             </Link>
           ))}
+
+          {user && (
+            <Link
+              href="/my-chats"
+              className={`relative inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-semibold transition-all ${
+                isActive("/my-chats")
+                  ? "bg-emerald-100 text-emerald-700"
+                  : "text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
+              }`}
+            >
+              💬 ห้องแชท
+              {chatUnreadCount > 0 && (
+                <span className="inline-flex min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                  {chatUnreadCount}
+                </span>
+              )}
+            </Link>
+          )}
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          <div
-            className="hidden h-9 w-9 items-center justify-center rounded-full border border-rose-100 bg-white text-base text-[#F43F5E] shadow-sm md:inline-flex"
-            aria-label="Light mode enabled"
-            title="Light mode enabled"
-          >
-            ☀️
-          </div>
-
           {user ? (
             <div className="hidden items-center gap-2 sm:flex">
               <Link
@@ -183,6 +239,21 @@ export default function Navbar() {
                 ＋ {item.label}
               </Link>
             ))}
+
+            {user && (
+              <Link
+                href="/my-chats"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-between rounded-full bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700"
+              >
+                <span>💬 ห้องแชท</span>
+                {chatUnreadCount > 0 && (
+                  <span className="inline-flex min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                    {chatUnreadCount}
+                  </span>
+                )}
+              </Link>
+            )}
 
             {user ? (
               <button

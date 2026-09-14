@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import HeroSection from "@/components/HeroSection";
+import ItemImage from "@/components/ItemImage";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
@@ -133,8 +134,11 @@ export default function Home() {
               >
                 <div className="flex h-44 items-center justify-center overflow-hidden bg-[#F8FAFC]">
                   {item.image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={item.image_url} alt={item.title} className="h-full w-full object-cover" />
+                    <ItemImage
+                      src={item.image_url}
+                      alt={item.title}
+                      className="h-full w-full object-cover"
+                    />
                   ) : (
                     <span className="text-5xl">{item.type === "LOST" ? "🎒" : "📦"}</span>
                   )}

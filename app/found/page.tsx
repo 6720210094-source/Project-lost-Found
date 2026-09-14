@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
+import ItemImage from "@/components/ItemImage";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 
@@ -130,8 +131,7 @@ export default function FoundPage() {
                 >
                   <div className="flex h-48 items-center justify-center bg-slate-100 overflow-hidden">
                     {item.image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <ItemImage
                         src={item.image_url}
                         alt={item.title}
                         className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
