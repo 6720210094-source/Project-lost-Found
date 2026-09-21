@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import ItemImage from "@/components/ItemImage";
+import SignatureModal from "@/components/SignatureModal";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -15,6 +16,7 @@ interface Item {
   location: string;
   description: string;
   image_url: string | null;
+  signature_url?: string | null;
   type: string;
   status: string;
   created_at: string;
@@ -37,6 +39,7 @@ export default function ItemDetailPage() {
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [startingChat, setStartingChat] = useState(false);
+  const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
 
   useEffect(() => {
     async function loadItem() {
@@ -254,6 +257,16 @@ export default function ItemDetailPage() {
                       {startingChat ? "กำลังเริ่มแชท..." : "ทักแชทหาผู้แจ้ง"}
                     </button>
                   ) : null}
+
+                  {currentUser && currentUser.id === item.user_id && item.status !== "RESOLVED" && (
+                    <button
+                      type="button"
+                      onClick={() => setIsSignatureModalOpen(true)}
+                      className="rounded-xl bg-rose-500 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-600"
+                    >
+                      เซ็นชื่อรับของคืน
+                    </button>
+                  )}
                 </div>
 
                 <h1 className="text-3xl font-bold text-slate-900">{item.title}</h1>
@@ -303,6 +316,19 @@ export default function ItemDetailPage() {
                       )}
                     </div>
                   )}
+
+                  {item.status === "RESOLVED" && item.signature_url && (
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                      <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">
+                        ✍️ ลายเซ็นรับของคืน
+                      </p>
+                      <img
+                        src={item.signature_url}
+                        alt="signature"
+                        className="mt-3 max-h-24 w-full rounded-xl border border-emerald-200 bg-white object-contain p-2"
+                      />
+                    </div>
+                  )}
                 </div>
 
               </div>
@@ -310,6 +336,16 @@ export default function ItemDetailPage() {
           </div>
         </div>
       </main>
+
+      <SignatureModal
+        isOpen={isSignatureModalOpen}
+        itemId={item?.id}
+        handoverId={undefined}
+        onClose={() => setIsSignatureModalOpen(false)}
+        onSuccess={(url) => {
+          console.log("Signature uploaded:", url);
+        }}
+      />
     </div>
   );
 }

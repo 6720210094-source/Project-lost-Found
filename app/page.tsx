@@ -96,9 +96,18 @@ export default function Home() {
       </section>
 
       <section className="mx-auto max-w-7xl px-6 pb-8 pt-16">
-        <div className="mb-7">
-          <p className="text-sm font-bold uppercase tracking-[0.14em] text-[#E11D48]">System Overview</p>
-          <h2 className="mt-2 text-3xl font-extrabold text-[#0F172A]">ภาพรวมการใช้งาน</h2>
+        <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-[0.14em] text-[#E11D48]">System Overview</p>
+            <h2 className="mt-2 text-3xl font-extrabold text-[#0F172A]">ภาพรวมการใช้งาน</h2>
+          </div>
+
+          <Link
+            href="/handover"
+            className="inline-flex items-center justify-center rounded-full bg-[#E11D48] px-5 py-2.5 text-sm font-bold text-white shadow-[0_12px_30px_rgba(225,29,72,0.2)] transition hover:-translate-y-0.5 hover:bg-[#BE123C]"
+          >
+            เซ็นชื่อรับของคืน
+          </Link>
         </div>
 
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -165,6 +174,7 @@ export default function Home() {
           🎒 Lost &amp; Found University System
         </div>
       </footer>
+
     </div>
   );
 }

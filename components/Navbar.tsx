@@ -11,12 +11,12 @@ import { supabase } from "@/lib/supabase";
 const menuItems = [
   { href: "/", label: "แดชบอร์ด" },
   { href: "/lost", label: "ของหาย" },
-  { href: "/found", label: "ของพบ" },
+  { href: "/found", label: "พบของ" },
+  { href: "/handover-history", label: "ประวัติการส่งมอบ" },
 ];
 
 const reportItems = [
   { href: "/report-lost", label: "แจ้งของหาย", highlight: true },
-  { href: "/report-found", label: "แจ้งของพบ", highlight: true },
 ];
 
 export default function Navbar() {
@@ -127,7 +127,7 @@ export default function Navbar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`rounded-full px-3.5 py-2 text-sm font-semibold transition-all ${
+              className={`inline-flex rounded-full px-3.5 py-2 text-sm font-semibold transition-all ${
                 isActive(item.href)
                   ? "bg-[color:var(--primary-soft)] text-[color:var(--primary)] shadow-sm"
                   : "text-slate-700 hover:bg-[color:var(--primary-soft)] hover:text-[color:var(--primary)]"
@@ -141,29 +141,28 @@ export default function Navbar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+              className={`inline-flex rounded-full px-4 py-2 text-sm font-semibold transition-all ${
                 item.highlight
                   ? "bg-[color:var(--primary)] text-white shadow-[0_12px_28px_rgba(225,29,72,0.22)] hover:-translate-y-0.5 hover:bg-[color:var(--primary-hover)]"
                   : "text-slate-700 hover:bg-[color:var(--primary-soft)] hover:text-[color:var(--primary)]"
               }`}
             >
-              <span className="text-base leading-none">＋</span>
-              <span>{item.label}</span>
+              {item.label}
             </Link>
           ))}
 
           {user && (
             <Link
               href="/my-chats"
-              className={`relative inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-semibold transition-all ${
+              className={`relative inline-flex rounded-full px-3.5 py-2 text-sm font-semibold transition-all ${
                 isActive("/my-chats")
                   ? "bg-emerald-100 text-emerald-700"
                   : "text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
               }`}
             >
-              💬 ห้องแชท
+              ห้องแชท
               {chatUnreadCount > 0 && (
-                <span className="inline-flex min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                <span className="ml-2 inline-flex min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
                   {chatUnreadCount}
                 </span>
               )}
@@ -236,7 +235,7 @@ export default function Navbar() {
                 onClick={() => setMobileMenuOpen(false)}
                 className="rounded-full bg-[color:var(--primary)] px-3 py-2 text-sm font-semibold text-white"
               >
-                ＋ {item.label}
+                {item.label}
               </Link>
             ))}
 
@@ -246,7 +245,7 @@ export default function Navbar() {
                 onClick={() => setMobileMenuOpen(false)}
                 className="flex items-center justify-between rounded-full bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700"
               >
-                <span>💬 ห้องแชท</span>
+                <span>ห้องแชท</span>
                 {chatUnreadCount > 0 && (
                   <span className="inline-flex min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
                     {chatUnreadCount}

@@ -46,6 +46,9 @@ export default function FoundPage() {
     fetchItems();
   }, [fetchItems]);
 
+  const resolvedCount = items.filter((item) => item.status === "RESOLVED").length;
+  const pendingCount = items.filter((item) => item.status !== "RESOLVED").length;
+
   return (
     <div className="min-h-screen bg-slate-50">
       <Navbar />
@@ -55,18 +58,18 @@ export default function FoundPage() {
           <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-emerald-100">
             Found Items
           </p>
-          <h1 className="text-4xl font-bold md:text-5xl">ของพบ</h1>
+          <h1 className="text-4xl font-bold md:text-5xl">พบของ</h1>
           <p className="mt-4 max-w-2xl text-lg text-emerald-100">
             ดูรายการสิ่งของที่มีผู้พบภายในมหาวิทยาลัย เผื่อเป็นของที่คุณกำลังตามหา
           </p>
 
-          <div className="mt-8">
-            <Link
-              href="/report-found"
-              className="inline-block rounded-xl bg-white px-6 py-3 font-semibold text-emerald-600 shadow-lg transition hover:bg-emerald-50"
-            >
-              + แจ้งของพบ
-            </Link>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <div className="rounded-full bg-white/10 px-4 py-2 text-sm font-medium backdrop-blur-sm">
+              ส่งคืนแล้ว: <span className="font-bold text-white">{resolvedCount}</span>
+            </div>
+            <div className="rounded-full bg-white/10 px-4 py-2 text-sm font-medium backdrop-blur-sm">
+              รอการคืน: <span className="font-bold text-white">{pendingCount}</span>
+            </div>
           </div>
         </div>
       </section>
@@ -110,7 +113,7 @@ export default function FoundPage() {
 
       <section className="px-6 pb-16">
         <div className="mx-auto max-w-7xl">
-          <h2 className="text-2xl font-bold text-slate-900">รายการของพบ</h2>
+          <h2 className="text-2xl font-bold text-slate-900">รายการพบของ</h2>
           <p className="mt-1 mb-6 text-sm text-slate-500">พบ {items.length} รายการ</p>
 
           {loading ? (
@@ -118,8 +121,8 @@ export default function FoundPage() {
           ) : items.length === 0 ? (
             <div className="mt-12 text-center rounded-2xl border border-slate-200 bg-white p-12">
               <p className="text-4xl">📦</p>
-              <p className="mt-4 font-bold text-slate-700 text-lg">ยังไม่มีรายการของพบ</p>
-              <p className="mt-1 text-sm text-slate-400">คุณสามารถแจ้งประกาศสิ่งของที่พบได้ตลอดเวลา</p>
+              <p className="mt-4 font-bold text-slate-700 text-lg">ยังไม่มีรายการพบของ</p>
+              <p className="mt-1 text-sm text-slate-400">สิ่งของที่พบและส่งคืนแล้วจะปรากฏที่นี่</p>
             </div>
           ) : (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -142,9 +145,15 @@ export default function FoundPage() {
                   </div>
 
                   <div className="p-5">
-                    <div className="mb-3 flex items-center justify-between">
-                      <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-600">
-                        {item.status === "RESOLVED" ? "ส่งคืนแล้ว" : "ของพบ"}
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                          item.status === "RESOLVED"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-amber-100 text-amber-700"
+                        }`}
+                      >
+                        {item.status === "RESOLVED" ? "ส่งคืนแล้ว" : "รอการคืน"}
                       </span>
                       <span className="text-xs text-slate-400">
                         {new Date(item.created_at).toLocaleDateString("th-TH")}

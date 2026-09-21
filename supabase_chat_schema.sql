@@ -9,7 +9,7 @@ create table if not exists public.chat_rooms (
   user1_id uuid not null,
   user2_id uuid not null,
   created_at timestamptz default now()
-);
+); 
 
 create table if not exists public.chat_messages (
   id uuid primary key default gen_random_uuid(),
