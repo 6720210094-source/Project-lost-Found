@@ -43,6 +43,9 @@ USING (
   bucket_id = 'signatures'
   AND auth.role() = 'authenticated'
 );-- ============================================================
+-- หมายเหตุ: สำหรับ Flow ปัจจุบันที่ไม่ใช้ผู้ส่ง/verification code
+-- ให้รันไฟล์ supabase_handover_simple.sql หลังจากตารางนี้ถูกสร้างแล้ว.
+-- ============================================================
 -- Proof of Delivery / Handover verification
 -- Run this in Supabase SQL Editor
 -- ============================================================

@@ -264,7 +264,7 @@ export default function ItemDetailPage() {
                       onClick={() => setIsSignatureModalOpen(true)}
                       className="rounded-xl bg-rose-500 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-600"
                     >
-                      เซ็นชื่อรับของคืน
+                      ยืนยันรับของคืน
                     </button>
                   )}
                 </div>
@@ -340,7 +340,6 @@ export default function ItemDetailPage() {
       <SignatureModal
         isOpen={isSignatureModalOpen}
         itemId={item?.id}
-        handoverId={undefined}
         onClose={() => setIsSignatureModalOpen(false)}
         onSuccess={(url) => {
           console.log("Signature uploaded:", url);

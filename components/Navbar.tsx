@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useTheme } from "next-themes";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
@@ -23,12 +22,10 @@ export default function Navbar() {
   const [user, setUser] = useState<User | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [chatUnreadCount, setChatUnreadCount] = useState(0);
-  const { setTheme } = useTheme();
   const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
-    setTheme("light");
     localStorage.setItem("lost-found-theme", "light");
 
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -44,7 +41,7 @@ export default function Navbar() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [setTheme]);
+  }, []);
 
   useEffect(() => {
     async function fetchUnreadChatCount() {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { supabase } from "@/lib/supabase";
 
@@ -8,60 +8,114 @@ const SIGNATURE_BUCKET = "signatures";
 
 type SignatureModalProps = {
   isOpen: boolean;
-  handoverId?: string;
   itemId?: string;
-  giverId?: string;
-  receiverId?: string;
   onClose: () => void;
   onSuccess?: (signatureUrl: string) => void;
 };
 
 export default function SignatureModal({
   isOpen,
-  handoverId,
   itemId,
-  giverId,
-  receiverId,
   onClose,
   onSuccess,
 }: SignatureModalProps) {
   const sigPadRef = useRef<SignatureCanvas | null>(null);
+
   const [loading, setLoading] = useState(false);
-  const [notice, setNotice] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [receiverName, setReceiverName] = useState("");
+  const [studentId, setStudentId] = useState("");
 
-  if (!isOpen) return null;
+  const [notice, setNotice] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
+  // โหลดข้อมูลผู้รับเมื่อเปิด Modal
+  useEffect(() => {
+    if (!isOpen) return;
+
+    setNotice(null);
+    setLoading(false);
+    setStudentId("");
+
+    // ล้างลายเซ็นเดิม
+    setTimeout(() => {
+      sigPadRef.current?.clear();
+    }, 0);
+
+    const loadReceiverName = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) return;
+
+        const { data, error } = await supabase
+          .from("users")
+          .select("name")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (error) {
+          console.error("Load receiver name failed:", error);
+        }
+
+        setReceiverName(
+          data?.name ||
+            user.user_metadata?.name ||
+            user.user_metadata?.full_name ||
+            ""
+        );
+      } catch (error) {
+        console.error("Load receiver failed:", error);
+      }
+    };
+
+    void loadReceiverName();
+  }, [isOpen]);
+
+  // ล้างลายเซ็น
   const clearSignature = () => {
     sigPadRef.current?.clear();
     setNotice(null);
   };
 
+  // ยืนยันการรับของ
   const handleConfirm = async () => {
-    if (!sigPadRef.current) {
-      const message = "Canvas ยังไม่พร้อมใช้งาน";
-      setNotice({ type: "error", text: message });
-      window.alert(message);
+    // ตรวจสอบ item
+    if (!itemId) {
+      setNotice({
+        type: "error",
+        text: "ไม่พบรายการของที่ต้องส่งมอบ",
+      });
       return;
     }
 
-    if (sigPadRef.current.isEmpty()) {
-      const message = "กรุณาเซ็นชื่อก่อนยืนยันรับของ";
-      setNotice({ type: "error", text: message });
-      window.alert(message);
+    // ตรวจสอบชื่อผู้รับ
+    if (!receiverName.trim()) {
+      setNotice({
+        type: "error",
+        text: "กรุณากรอกชื่อผู้รับ",
+      });
       return;
     }
 
-    if (!itemId && (!handoverId || handoverId === "demo-handover-id")) {
-      const message = "กรุณาเปิดฟังก์ชันนี้จากหน้ารายการจริงก่อนยืนยันรับของ";
-      setNotice({ type: "error", text: message });
-      window.alert(message);
+    // ตรวจสอบรหัสนักศึกษา
+    if (!studentId.trim()) {
+      setNotice({
+        type: "error",
+        text: "กรุณากรอกรหัสนักศึกษา",
+      });
       return;
     }
 
-    if (!giverId || !receiverId || giverId === receiverId) {
-      const message = "ข้อมูลผู้ส่ง/ผู้รับไม่ครบถ้วนหรือซ้ำกัน กรุณาตรวจสอบข้อมูลก่อนยืนยัน";
-      setNotice({ type: "error", text: message });
-      window.alert(message);
+    // ตรวจสอบลายเซ็น
+    if (!sigPadRef.current || sigPadRef.current.isEmpty()) {
+      setNotice({
+        type: "error",
+        text: "กรุณาเซ็นชื่อก่อนยืนยัน",
+      });
       return;
     }
 
@@ -69,12 +123,39 @@ export default function SignatureModal({
     setNotice(null);
 
     try {
-      const dataUrl = sigPadRef.current.toDataURL("image/png");
-      const blob = await (await fetch(dataUrl)).blob();
-      const file = new File([blob], `signature-${Date.now()}.png`, { type: "image/png" });
+      // =====================================================
+      // 1. ตรวจสอบผู้ใช้ที่ Login
+      // =====================================================
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
 
-      const storageKey = itemId || handoverId || "signature";
-      const filePath = `signatures/${storageKey}/${file.name}`;
+      if (authError || !user) {
+        throw new Error("กรุณาเข้าสู่ระบบก่อนยืนยันรับของ");
+      }
+
+      // =====================================================
+      // 2. แปลงลายเซ็นเป็นไฟล์ PNG
+      // =====================================================
+      const dataUrl = sigPadRef.current.toDataURL("image/png");
+
+      const response = await fetch(dataUrl);
+      const blob = await response.blob();
+
+      const file = new File(
+        [blob],
+        `signature-${itemId}-${Date.now()}.png`,
+        {
+          type: "image/png",
+        }
+      );
+
+      // =====================================================
+      // 3. Upload ลายเซ็นไป Supabase Storage
+      // =====================================================
+      const filePath = `signatures/${itemId}/${file.name}`;
+
       const { error: uploadError } = await supabase.storage
         .from(SIGNATURE_BUCKET)
         .upload(filePath, file, {
@@ -85,125 +166,254 @@ export default function SignatureModal({
 
       if (uploadError) {
         console.error("Signature upload failed:", uploadError);
-        if (uploadError.message?.includes("Bucket not found")) {
-          throw new Error("Bucket 'signatures' ยังไม่มีใน Supabase โปรดสร้าง bucket ชื่อ 'signatures' ก่อนใช้งาน");
+
+        if (
+          uploadError.message?.toLowerCase().includes("bucket not found")
+        ) {
+          throw new Error(
+            "ยังไม่มี Storage Bucket ชื่อ signatures ใน Supabase"
+          );
         }
-        throw uploadError;
+
+        throw new Error(
+          uploadError.message ||
+            "ไม่สามารถอัปโหลดลายเซ็นได้"
+        );
       }
 
+      // =====================================================
+      // 4. สร้าง URL ของลายเซ็น
+      // =====================================================
       const { data: publicUrlData } = supabase.storage
         .from(SIGNATURE_BUCKET)
         .getPublicUrl(filePath);
 
-      let signatureUrl = publicUrlData?.publicUrl ?? "";
+      const signatureUrl =
+        publicUrlData?.publicUrl || "";
 
       if (!signatureUrl) {
-        const { data: signedData, error: signedError } = await supabase.storage
-          .from(SIGNATURE_BUCKET)
-          .createSignedUrl(filePath, 60 * 60 * 24);
-
-        if (signedError) {
-          console.error("Signature signed URL failed:", signedError);
-          throw signedError;
-        }
-
-        signatureUrl = signedData?.signedUrl ?? "";
+        throw new Error(
+          "ไม่สามารถสร้าง URL สำหรับลายเซ็นได้"
+        );
       }
 
-      if (!signatureUrl) {
-        throw new Error("ไม่สามารถสร้าง Public URL ของลายเซ็นได้");
-      }
-
+      // วันเวลาส่งมอบ
       const completedAt = new Date().toISOString();
-      const verificationCode = Array.from({ length: 6 }, () => Math.floor(Math.random() * 10)).join("");
 
-      if (handoverId && handoverId !== "demo-handover-id") {
-        const { error: handoverInsertError } = await supabase.from("handover_proofs").upsert(
+      // =====================================================
+      // 5. บันทึกข้อมูลการส่งมอบลง handover_proofs
+      // =====================================================
+      const { error: handoverError } = await supabase
+        .from("handover_proofs")
+        .upsert(
           {
-            id: handoverId,
-            item_id: itemId ?? "",
-            giver_id: giverId,
-            receiver_id: receiverId,
+            item_id: itemId,
+
+            // ไม่มีผู้ส่ง
+            giver_id: null,
+
+            // ผู้รับคือผู้ใช้ที่ Login อยู่
+            receiver_id: user.id,
+
+            // ข้อมูลผู้รับ
+            receiver_name: receiverName.trim(),
+            receiver_student_id: studentId.trim(),
+
+            // ลายเซ็น
             proof_image_url: signatureUrl,
-            verification_code: verificationCode,
+
+            // ไม่ใช้ verification code
+            verification_code: null,
+
+            // สถานะการส่งมอบ
             status: "completed",
+
+            // วันและเวลารับของ
             completed_at: completedAt,
           },
-          { onConflict: "id", ignoreDuplicates: false }
+          {
+            onConflict: "item_id",
+            ignoreDuplicates: false,
+          }
         );
 
-        if (handoverInsertError) {
-          console.error("handover_proofs upsert failed:", handoverInsertError);
-          throw handoverInsertError;
-        }
+      if (handoverError) {
+        console.error(
+          "handover_proofs save failed:",
+          handoverError
+        );
+
+        throw new Error(
+          handoverError.message ||
+            "ไม่สามารถบันทึกข้อมูลการส่งมอบได้"
+        );
       }
 
-      if (itemId) {
-        const { error: itemUpdateError } = await supabase
-          .from("items")
-          .update({
-            status: "RESOLVED",
-            signature_url: signatureUrl,
-            completed_at: completedAt,
-          })
-          .eq("id", itemId);
+      // =====================================================
+      // 6. เปลี่ยนสถานะรายการใน items
+      //
+      // สำคัญ:
+      // ไม่ใส่ completed_at ตรงนี้
+      // เพราะ items ไม่มี column completed_at
+      // =====================================================
+      const { error: itemUpdateError } = await supabase
+        .from("items")
+        .update({
+          status: "RESOLVED",
+        })
+        .eq("id", itemId);
 
-        if (itemUpdateError) {
-          console.error("item update failed:", itemUpdateError);
-          throw itemUpdateError;
-        }
+      if (itemUpdateError) {
+        console.error(
+          "items status update failed:",
+          itemUpdateError
+        );
+
+        throw new Error(
+          itemUpdateError.message ||
+            "ไม่สามารถเปลี่ยนสถานะรายการเป็นส่งมอบแล้วได้"
+        );
       }
 
-      const successMessage = `ยืนยันรับของสำเร็จแล้ว รหัสยืนยัน: ${verificationCode}`;
-      setNotice({ type: "success", text: successMessage });
-      window.alert(successMessage);
+      // =====================================================
+      // 7. แจ้งว่าส่งมอบสำเร็จ
+      // =====================================================
+      setNotice({
+        type: "success",
+        text: "ส่งมอบของเรียบร้อยแล้ว",
+      });
+
+      // แจ้ง Component แม่ว่าการส่งมอบสำเร็จ
       onSuccess?.(signatureUrl);
-      onClose();
+
+      // ปิด Modal หลังจากแสดงข้อความสำเร็จ
+      window.setTimeout(() => {
+        onClose();
+      }, 800);
     } catch (error) {
+      // =====================================================
+      // Error handling
+      // =====================================================
+      console.error(
+        "Signature confirmation failed:",
+        error
+      );
+
       const message =
-        error instanceof Error ? error.message : "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง";
-      console.error("Signature confirmation failed:", error);
-      setNotice({ type: "error", text: message });
-      window.alert(message);
+        error instanceof Error
+          ? error.message
+          : "ไม่สามารถบันทึกข้อมูลได้ กรุณาลองใหม่อีกครั้ง";
+
+      setNotice({
+        type: "error",
+        text: message,
+      });
     } finally {
+      // หยุด Loading ไม่ว่าจะสำเร็จหรือเกิด Error
       setLoading(false);
     }
   };
 
+  // ถ้า Modal ไม่เปิด ไม่ต้องแสดง
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
-        <div className="mb-4 flex items-center justify-between gap-3">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-xl rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-6">
+        {/* Header */}
+        <div className="mb-5 flex items-center justify-between gap-3">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-rose-500">Digital Signature</p>
-            <h3 className="mt-1 text-xl font-bold text-slate-900">เซ็นชื่อรับของคืน</h3>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-rose-500">
+              Handover Confirmation
+            </p>
+
+            <h3 className="mt-1 text-xl font-bold text-slate-900">
+              ยืนยันการรับของคืน
+            </h3>
+
+            <p className="mt-1 text-sm text-slate-500">
+              กรอกข้อมูลผู้รับและเซ็นชื่อเพื่อยืนยันการรับของ
+            </p>
           </div>
 
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
+            disabled={loading}
+            className="rounded-full border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50"
           >
             ปิด
           </button>
         </div>
 
-        <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 p-2">
-          <SignatureCanvas
-            ref={sigPadRef}
-            canvasProps={{
-              className: "min-h-[220px] w-full rounded-xl bg-white shadow-inner",
-            }}
-            backgroundColor="white"
-            penColor="black"
-          />
+        {/* Form */}
+        <div className="space-y-4">
+          {/* ชื่อผู้รับ */}
+          <div>
+            <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+              ชื่อผู้รับ
+            </label>
+
+            <input
+              value={receiverName}
+              onChange={(e) =>
+                setReceiverName(e.target.value)
+              }
+              placeholder="กรอกชื่อ-นามสกุล"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-rose-400 focus:bg-white"
+            />
+          </div>
+
+          {/* รหัสนักศึกษา */}
+          <div>
+            <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+              รหัสนักศึกษา
+            </label>
+
+            <input
+              value={studentId}
+              onChange={(e) =>
+                setStudentId(e.target.value)
+              }
+              placeholder="เช่น 6612345678"
+              inputMode="numeric"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-rose-400 focus:bg-white"
+            />
+          </div>
+
+          {/* ลายเซ็น */}
+          <div>
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <label className="block text-sm font-semibold text-slate-700">
+                ลายเซ็นผู้รับ
+              </label>
+
+              <span className="text-xs text-slate-400">
+                เซ็นในช่องด้านล่าง
+              </span>
+            </div>
+
+            <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 p-2">
+              <SignatureCanvas
+                ref={sigPadRef}
+                canvasProps={{
+                  className:
+                    "h-[220px] w-full rounded-xl bg-white shadow-inner",
+                }}
+                backgroundColor="white"
+                penColor="black"
+              />
+            </div>
+          </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        {/* Buttons */}
+        <div className="mt-5 flex flex-wrap gap-3">
           <button
             type="button"
             onClick={clearSignature}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+            disabled={loading}
+            className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-50"
           >
             ล้าง / เซ็นใหม่
           </button>
@@ -212,15 +422,18 @@ export default function SignatureModal({
             type="button"
             onClick={handleConfirm}
             disabled={loading}
-            className="rounded-xl bg-rose-500 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(244,63,94,0.25)] transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:bg-slate-400"
+            className="flex-1 rounded-xl bg-rose-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-rose-200 transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:bg-slate-400"
           >
-            {loading ? "กำลังยืนยัน..." : "ยืนยันรับของ"}
+            {loading
+              ? "กำลังบันทึก..."
+              : "ยืนยันรับของ"}
           </button>
         </div>
 
+        {/* Notice */}
         {notice && (
           <div
-            className={`mt-4 rounded-xl border px-3 py-2 text-sm ${
+            className={`mt-4 rounded-xl border px-3 py-2.5 text-sm ${
               notice.type === "success"
                 ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                 : "border-red-200 bg-red-50 text-red-700"
