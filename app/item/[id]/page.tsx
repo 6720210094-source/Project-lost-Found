@@ -340,9 +340,20 @@ export default function ItemDetailPage() {
       <SignatureModal
         isOpen={isSignatureModalOpen}
         itemId={item?.id}
+        itemTitle={item?.title}
+        handoverId={undefined}
         onClose={() => setIsSignatureModalOpen(false)}
         onSuccess={(url) => {
-          console.log("Signature uploaded:", url);
+          console.log("Handover completed with signature:", url);
+          setItem((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  status: "RESOLVED",
+                  signature_url: url,
+                }
+              : prev
+          );
         }}
       />
     </div>
