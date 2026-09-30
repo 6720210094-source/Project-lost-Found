@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "playwright test"
   },
   "dependencies": {
     "@prisma/client": "^7.10.0",
@@ -22,6 +23,7 @@
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@prisma/config": "^7.10.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "26.4.1",
